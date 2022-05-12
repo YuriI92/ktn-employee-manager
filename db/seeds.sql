@@ -1,3 +1,4 @@
+-- departments table values
 INSERT INTO departments (name)
 VALUES
     ('Sales & Marketing'),
