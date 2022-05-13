@@ -2,6 +2,29 @@ const inquirer = require('inquirer');
 const db = require('./db/connection');
 const cTable = require('console.table');
 let sql = '';
+let params = '';
+
+const showTable = (sql) => {
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+        console.table(results);
+        promptOption();
+    });
+}
+
+const addInfo = (sql, params) => {
+    db.query(sql, params, (err, results) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+        console.log(`Added ${params} to the database`);
+        promptOption();
+    });
+}
 
 const promptOption = () => {
     return inquirer.prompt([
@@ -20,101 +43,87 @@ const promptOption = () => {
                 new inquirer.Separator(),
                 'Update Employee Role'
             ]
-        },
-        // {
-        //     type: 'input',
-        //     name: 'department',
-        //     message: 'What is the name of the department?',
-        //     when: ({ option }) => {
-        //         if (option === 'Add Department') {
-        //             return true;
-        //         } else {
-        //             return false;
-        //         }
-        //     }
-        // },
-        // {
-        //     type: 'input',
-        //     name: 'role',
-        //     message: 'What is the name of the role?',
-        //     when: ({ option }) => {
-        //         if (option === 'Add Roll') {
-        //             return true;
-        //         } else {
-        //             return false;
-        //         }
-        //     }
-        // },
-        // {
-        //     type: 'input',
-        //     name: 'salary',
-        //     message: 'What is the salary of the role?',
-        //     when: ({ option }) => {
-        //         if (option === 'Add Roll') {
-        //             return true;
-        //         } else {
-        //             return false;
-        //         }
-        //     }
-        // },
-        // {
-        //     type: 'input',
-        //     name: 'roleDept',
-        //     message: 'What is the salary of the role?',
-        //     when: ({ option }) => {
-        //         if (option === 'Add Roll') {
-        //             return true;
-        //         } else {
-        //             return false;
-        //         }
-        //     }
-        // }
+        }
     ])
-}
-
-promptOption()
     .then(({ option }) => {
         switch(option) {
             case 'View Departments':
                 sql = `SELECT * FROM departments`;
-                db.query(sql, (err, results) => {
-                    if (err) {
-                        console.log(err);
-                        return;
-                    }
-                    console.table(results);
-                });
+                showTable(sql);
                 break;
             case 'View Roles':
                 sql = `SELECT roles.id, roles.title, roles.salary, departments.name AS department
-                        FROM roles LEFT JOIN departments ON roles.department_id = departments.id`;
-
-                db.query(sql, (err, results) => {
-                    if (err) {
-                        console.log(err);
-                        return;
-                    }
-                    console.table(results);
-                });
+                    FROM roles LEFT JOIN departments ON roles.department_id = departments.id`;
+                showTable(sql);
                 break;
             case 'View Employees':
-                const sql = `SELECT employees.id, employees.first_name, employees.last_name,
-                            roles.title AS job_title, departments.name AS department, roles.salary,
-                            CONCAT(manager.first_name, " ", manager.last_name) as manager_name
-                            FROM employees LEFT JOIN roles ON employees.role_id = roles.id
-                            LEFT JOIN departments ON roles.department_id = departments.id
-                            LEFT JOIN employees manager ON employees.manager_id = manager.id`;
-
+                sql = `SELECT employees.id, employees.first_name, employees.last_name,
+                    roles.title AS job_title, departments.name AS department, roles.salary,
+                    CONCAT(manager.first_name, " ", manager.last_name) as manager_name
+                    FROM employees LEFT JOIN roles ON employees.role_id = roles.id
+                    LEFT JOIN departments ON roles.department_id = departments.id
+                    LEFT JOIN employees manager ON employees.manager_id = manager.id`;
+                showTable(sql);
+                break;
+            case 'Add Department':
+                return inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'department',
+                        message: 'What is the name of the department?'
+                    }
+                ])
+                    .then((answer) => {
+                        sql = `INSERT INTO departments (name) VALUES (?)`;
+                        addInfo(sql, answer.department);
+                    });
+            case 'Add Role':
+                sql = `SELECT * FROM departments`;
+                let choices = [];
                 db.query(sql, (err, results) => {
                     if (err) {
                         console.log(err);
                         return;
                     }
-                    console.table(results);
-                });
-                break;
+
+                    results.forEach(function(index) {
+                        choices.push(index.name);
+                    });
+
+                    return inquirer.prompt([
+                        {
+                            type: 'input',
+                            name: 'title',
+                            message: 'What is the name of the role?',
+                        },
+                        {
+                            type: 'input',
+                            name: 'salary',
+                            message: 'What is the salary of the role?',
+                        },
+                        {
+                            type: 'list',
+                            name: 'department',
+                            message: 'Which department does the role belong to?',
+                            choices
+                        }
+                    ])
+                        .then((answer) => {
+                            const arr = results.filter(index => index.name === answer.department);
+                            const department_id = arr[0].id;
+                            sql = `INSERT INTO roles (title, salary, department_id) VALUES (?,?,?)`;
+                            params = [answer.title, answer.salary, department_id];
+                            addInfo(sql, params);
+                        });
+                }); 
         }
-    })
+    });
+}
+
+promptOption()
     .catch(err => {
         console.log(err);
     });
+
+
+module.exports = { promptOption };
