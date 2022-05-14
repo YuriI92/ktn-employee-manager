@@ -41,11 +41,14 @@ const promptOption = () => {
                 'Add Role',
                 'Add Employee',
                 new inquirer.Separator(),
-                'Update Employee Role'
+                'Update Employee Role',
+                new inquirer.Separator(),
             ]
         }
     ])
     .then(({ option }) => {
+        let choices = [];
+
         switch(option) {
             case 'View Departments':
                 sql = `SELECT * FROM departments`;
@@ -79,7 +82,6 @@ const promptOption = () => {
                     });
             case 'Add Role':
                 sql = `SELECT * FROM departments`;
-                let choices = [];
                 db.query(sql, (err, results) => {
                     if (err) {
                         console.log(err);
@@ -115,7 +117,129 @@ const promptOption = () => {
                             params = [answer.title, answer.salary, department_id];
                             addInfo(sql, params);
                         });
-                }); 
+                });
+                break;
+            case 'Add Employee':
+                choices = [];
+                sql = `SELECT * FROM roles`;
+                db.query(sql, (err, results) => {
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+
+                    results.forEach(function(index) {
+                        choices.push(index.title);
+                    });
+                    
+                    sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
+                    let choices2 = [];
+                    db.query(sql, (err, results2) => {
+                        if (err) {
+                            console.log(err);
+                            return;
+                        }
+
+                        results2.forEach(function(index) {
+                            choices2.push(index.name);
+                        });
+                        choices2.push('None');
+
+                        return inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'first_name',
+                                message: "What is the employee's first name?",
+                            },
+                            {
+                                type: 'input',
+                                name: 'last_name',
+                                message: "What is the employee's last name?",
+                            },
+                            {
+                                type: 'list',
+                                name: 'role',
+                                message: 'What is the role of the employee?',
+                                choices
+                            },
+                            {
+                                type: 'list',
+                                name: 'manager',
+                                message: "Who is the employee's manager?",
+                                choices: choices2
+                            }
+                        ])
+                            .then((answer) => {
+                                const rolesArr = results.filter(index => index.title === answer.role);
+                                const role_id = rolesArr[0].id;
+                                const managerArr = results2.filter(index => index.name === answer.manager);
+                                const manager_id = managerArr[0].id;
+                                sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?)`;
+                                params = [answer.first_name, answer.last_name, role_id, manager_id];
+                                addInfo(sql, params);
+                            });
+                    });
+                });
+                break;
+            case 'Update Employee Role':
+                choices = [];
+                sql = `SELECT * FROM roles`;
+                db.query(sql, (err, results) => {
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+
+                    results.forEach(function(index) {
+                        choices.push(index.title);
+                    });
+                    
+                    sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
+                    let choices2 = [];
+                    db.query(sql, (err, results2) => {
+                        if (err) {
+                            console.log(err);
+                            return;
+                        }
+
+                        results2.forEach(function(index) {
+                            choices2.push(index.name);
+                        });
+
+                        return inquirer.prompt([
+                            {
+                                type: 'list',
+                                name: 'employee',
+                                message: "Which employee's role do you want to update?",
+                                choices: choices2
+                            },
+                            {
+                                type: 'list',
+                                name: 'role',
+                                message: 'What is the role of the employee?',
+                                choices
+                            }
+                        ])
+                        .then((answer) => {
+                            const rolesArr = results.filter(index => index.title === answer.role);
+                            const role_id = rolesArr[0].id;
+                            const employeeArr = results2.filter(index => index.name === answer.employee);
+                            const employee_id = employeeArr[0].id;
+                            sql = `UPDATE employees SET role_id = ? WHERE id = ?`;
+                            params = [role_id, employee_id];
+                            console.log(params);
+                            db.query(sql, params, (err, results) => {
+                                if (err) {
+                                    console.log(err);
+                                } else if (!results.affectedRows) {
+                                    console.log('Employee not found');
+                                } else {
+                                    console.log(`Updated ${params} information in the database`);
+                                }
+                            });
+                        })
+                    });
+                });  
         }
     });
 }
