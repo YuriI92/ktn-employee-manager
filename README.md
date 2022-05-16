@@ -4,7 +4,9 @@
 
 ## Description
 This app is perfect for viewing and managing the departments, roles, and employees in your company! It will definitely help you organize and plan your business with just the command line prompt! 😼✨<br/>
-Click [here](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/view) for the demonstration video.
+Click [here](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/view) for the demonstration video.<br/>
+< Sample image >
+![Alt text](./assets/images/screenshot1_tables.png)
 
 ## Table of Contents
 - [Installation](#installation)
@@ -31,6 +33,7 @@ Click [here](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/v
    npm start
    ```
 4. Select option using up and down arrows.
+![alt text](./assets/images/screenshot2_options.png)
 5. For the add and update options, answer all the questions.
 6. Use 'Ctrl' + 'c' to end.
 
