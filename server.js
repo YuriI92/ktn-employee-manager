@@ -215,7 +215,7 @@ const addEmployee = (choices) => {
                     let manager_id = '';
                     // set manager_id to null if 'none' is selected for manager
                     if (answer.manager === 'None') {
-                        manager_id = 'NULL';
+                        manager_id = null;
                     } else {
                         manager_id = results2.filter(index => index.name === answer.manager)[0].id;
                     }
