@@ -105,6 +105,7 @@ const promptOption = () => {
                 break;
             case 'Delete Role':
                 deleteRole(choices);
+                break;
             case 'Delete Employee':
                 updateEmployee(choices, 'delete');
                 break;
@@ -155,18 +156,18 @@ const addDept = () => {
 }
 
 // add role info to roles table
-const addRole = (departments) => {
+const addRole = (deptList) => {
     // get departments info to use as a prompt option for department choices
     sql = `SELECT * FROM departments`;
-    db.query(sql, (err, deptList) => {
+    db.query(sql, (err, departments) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get departments names and store into choices array
-        deptList.forEach(function(index) {
-            departments.push(index.name);
+        departments.forEach(function(index) {
+            deptList.push(index.name);
         });
 
         // prompt user for the info to add
@@ -199,18 +200,18 @@ const addRole = (departments) => {
 }
 
 // add employee info to employees table
-const addEmployee = (roles) => {
+const addEmployee = (roleList) => {
     // get roles info to use as a prompt option for roles choices
     sql = `SELECT * FROM roles`;
-    db.query(sql, (err, roleList) => {
+    db.query(sql, (err, roles) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get job titles and store into choices array
-        roleList.forEach(function(index) {
-            roles.push(index.title);
+        roles.forEach(function(index) {
+            roleList.push(index.title);
         });
         
         // get employees info to use as a prompt option for employees choices
@@ -338,6 +339,8 @@ const updateEmployee = (employeeList, action) => {
             });
         // if the user selected 'Update Employee Manager'
         } else if (action === 'update_manager') {
+            employeeList.push('None');
+
             // prompt user for the info to update
             return inquirer.prompt([
                 {
@@ -354,8 +357,21 @@ const updateEmployee = (employeeList, action) => {
                 }
             ])
             .then((answer) => {
-                const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
-                const manager_id = employees.filter(index => index.name === answer.manager)[0].id;
+                // set employee_id to empty string if selected 'None' for the employee
+                // to avoid error
+                let employee_id = '';
+                if (answer.employee !== 'None') {
+                    employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                }
+                
+                let manager_id = '';
+                // set manager_id to null if 'none' is selected for manager
+                if (answer.manager === 'None') {
+                    manager_id = null;
+                } else {
+                    manager_id = employees.filter(index => index.name === answer.manager)[0].id;
+                }
+
                 sql = `UPDATE employees SET manager_id = ? WHERE id = ?`;
                 params = [manager_id, employee_id];
                 
