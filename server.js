@@ -18,6 +18,7 @@ const promptOption = () => {
                 'View Employees',
                 'View Employees by Manager',
                 'View Employees by Department',
+                'View Department Budget',
                 new inquirer.Separator(),
                 'Add Department',
                 'Add Role',
@@ -72,6 +73,17 @@ const promptOption = () => {
                 sql += ` ORDER BY department`;
                 showTable(sql);
                 break;
+            case 'View Department Budget':
+                // columns: department, budget(salary sum grouped by department)
+                // tables: roles, departments
+                sql = `SELECT departments.name AS department, SUM(roles.salary) AS budget
+                    FROM employees LEFT JOIN roles ON employees.role_id = roles.id
+                    LEFT JOIN departments ON roles.department_id = departments.id
+                    GROUP BY department`;
+
+                showTable(sql);
+                break;
+
             case 'Add Department':
                 addDept();
                 break;
@@ -81,6 +93,7 @@ const promptOption = () => {
             case 'Add Employee':
                 addEmployee(choices);                
                 break;
+
             case 'Update Employee Role':
                 updateEmployee(choices, 'update_role');
                 break;
@@ -142,18 +155,18 @@ const addDept = () => {
 }
 
 // add role info to roles table
-const addRole = (choices) => {
+const addRole = (departments) => {
     // get departments info to use as a prompt option for department choices
     sql = `SELECT * FROM departments`;
-    db.query(sql, (err, results) => {
+    db.query(sql, (err, deptList) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get departments names and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.name);
+        deptList.forEach(function(index) {
+            departments.push(index.name);
         });
 
         // prompt user for the info to add
@@ -172,12 +185,12 @@ const addRole = (choices) => {
                 type: 'list',
                 name: 'department',
                 message: 'Which department does the role belong to?',
-                choices
+                choices: deptList
             }
         ])
             .then((answer) => {
                 // get department_id of the department selected
-                const department_id = results.filter(index => index.name === answer.department)[0].id;
+                const department_id = departments.filter(index => index.name === answer.department)[0].id;
                 sql = `INSERT INTO roles (title, salary, department_id) VALUES (?,?,?)`;
                 params = [answer.title, answer.salary, department_id];
                 addInfo(sql, params, answer.title);
@@ -186,34 +199,34 @@ const addRole = (choices) => {
 }
 
 // add employee info to employees table
-const addEmployee = (choices) => {
+const addEmployee = (roles) => {
     // get roles info to use as a prompt option for roles choices
     sql = `SELECT * FROM roles`;
-    db.query(sql, (err, results) => {
+    db.query(sql, (err, roleList) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get job titles and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.title);
+        roleList.forEach(function(index) {
+            roles.push(index.title);
         });
         
         // get employees info to use as a prompt option for employees choices
         sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
-        let choices2 = [];
-        db.query(sql, (err, results2) => {
+        let employeeList = [];
+        db.query(sql, (err, employees) => {
             if (err) {
                 console.log(err);
                 return;
             }
 
             // get employee names and store into choices array
-            results2.forEach(function(index) {
-                choices2.push(index.name);
+            employees.forEach(function(index) {
+                employeeList.push(index.name);
             });
-            choices2.push('None');
+            employeeList.push('None');
 
             // prompt user for the info to add
             return inquirer.prompt([
@@ -231,23 +244,23 @@ const addEmployee = (choices) => {
                     type: 'list',
                     name: 'role',
                     message: 'What is the role of the employee?',
-                    choices
+                    choices: roleList
                 },
                 {
                     type: 'list',
                     name: 'manager',
                     message: "Who is the employee's manager?",
-                    choices: choices2
+                    choices: employeeList
                 }
             ])
                 .then((answer) => {
-                    const role_id = results.filter(index => index.title === answer.role)[0].id;
+                    const role_id = roles.filter(index => index.title === answer.role)[0].id;
                     let manager_id = '';
                     // set manager_id to null if 'none' is selected for manager
                     if (answer.manager === 'None') {
                         manager_id = null;
                     } else {
-                        manager_id = results2.filter(index => index.name === answer.manager)[0].id;
+                        manager_id = employees.filter(index => index.name === answer.manager)[0].id;
                     }
 
                     sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?)`;
@@ -275,7 +288,7 @@ const updateEmployee = (employeeList, action) => {
         });
 
         // if the user selected 'Update Employee Role', 
-        if (action === 'role') {
+        if (action === 'update_role') {
             // get roles info to use as a prompt option for roles choices
             sql = `SELECT * FROM roles`;
             let roleList = [];
@@ -324,7 +337,7 @@ const updateEmployee = (employeeList, action) => {
                 });
             });
         // if the user selected 'Update Employee Manager'
-        } else if (action === 'manager') {
+        } else if (action === 'update_manager') {
             // prompt user for the info to update
             return inquirer.prompt([
                 {
