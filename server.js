@@ -260,7 +260,7 @@ const addEmployee = (choices) => {
 }
 
 // update employee info in employees table
-const updateEmployee = (employeeList, updateItem) => {
+const updateEmployee = (employeeList, action) => {
     // get employees info to use as a prompt option for employees choices
     sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
     db.query(sql, (err, employees) => {
@@ -275,7 +275,7 @@ const updateEmployee = (employeeList, updateItem) => {
         });
 
         // if the user selected 'Update Employee Role', 
-        if (updateItem === 'role') {
+        if (action === 'role') {
             // get roles info to use as a prompt option for roles choices
             sql = `SELECT * FROM roles`;
             let roleList = [];
@@ -324,7 +324,7 @@ const updateEmployee = (employeeList, updateItem) => {
                 });
             });
         // if the user selected 'Update Employee Manager'
-        } else if (updateItem === 'manager') {
+        } else if (action === 'manager') {
             // prompt user for the info to update
             return inquirer.prompt([
                 {
@@ -357,6 +357,32 @@ const updateEmployee = (employeeList, updateItem) => {
                     promptOption();
                 });
             });
+        } else if (action === 'delete') {
+            // prompt user for the info to delete
+            return inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'employee',
+                    message: "Which employee do you want to delete?",
+                    choices: employeeList
+                },
+            ])
+            .then((answer) => {
+                const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                sql = `DELETE FROM employees WHERE id = ?`;
+                params = [employee_id];
+                
+                db.query(sql, params, (err, results) => {
+                    if (err) {
+                        console.log(err);
+                    } else if (!results.affectedRows) {
+                        console.log('Employee not found');
+                    } else {
+                        console.log(`Deleted ${answer.employee} from the database`);
+                    }
+                    promptOption();
+                });
+            });         
         }
     });
 }
