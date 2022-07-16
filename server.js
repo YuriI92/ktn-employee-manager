@@ -2,7 +2,6 @@ const inquirer = require('inquirer');
 const db = require('./db/connection');
 const cTable = require('console.table');
 
-let sql = '';
 let params = '';
 
 // prompt user for options
@@ -16,6 +15,8 @@ const promptOption = () => {
                 'View Departments',
                 'View Roles',
                 'View Employees',
+                'View Employees by Manager',
+                'View Employees by Department',
                 new inquirer.Separator(),
                 'Add Department',
                 'Add Role',
@@ -29,6 +30,16 @@ const promptOption = () => {
     ])
     .then(({ option }) => {
         let choices = [];
+
+        // default sql value is getting employee information
+        // columns: id, first_name, last_name, job_title, department, salary, manager_name (manager's full name)
+        // tables: employees, roles, departments, manager(referring employees)
+        let sql = `SELECT employees.id, employees.first_name, employees.last_name,
+            roles.title AS job_title, departments.name AS department, roles.salary,
+            CONCAT(manager.first_name, " ", manager.last_name) as manager_name
+            FROM employees LEFT JOIN roles ON employees.role_id = roles.id
+            LEFT JOIN departments ON roles.department_id = departments.id
+            LEFT JOIN employees manager ON employees.manager_id = manager.id`;
 
         // respond to the selected options
         switch(option) {
@@ -44,14 +55,17 @@ const promptOption = () => {
                 showTable(sql);
                 break;
             case 'View Employees':
-                // columns: id, first_name, last_name, job_title, department, salary, manager_name (manager's full name)
-                // tables: employees, roles, departments, manager(referring employees)
-                sql = `SELECT employees.id, employees.first_name, employees.last_name,
-                    roles.title AS job_title, departments.name AS department, roles.salary,
-                    CONCAT(manager.first_name, " ", manager.last_name) as manager_name
-                    FROM employees LEFT JOIN roles ON employees.role_id = roles.id
-                    LEFT JOIN departments ON roles.department_id = departments.id
-                    LEFT JOIN employees manager ON employees.manager_id = manager.id`;
+                // use default sql value
+                showTable(sql);
+                break;
+            case 'View Employees by Manager':
+                // add sort order to the default sql value
+                sql += ` ORDER BY manager_name`;
+                showTable(sql);
+                break;
+            case 'View Employees by Department':
+                // add sort order to the default sql value
+                sql += ` ORDER BY department`;
                 showTable(sql);
                 break;
             case 'Add Department':
