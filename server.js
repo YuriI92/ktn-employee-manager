@@ -2,6 +2,7 @@ const inquirer = require('inquirer');
 const db = require('./db/connection');
 const cTable = require('console.table');
 
+let sql = '';
 let params = '';
 
 // prompt user for options
@@ -24,6 +25,9 @@ const promptOption = () => {
                 new inquirer.Separator(),
                 'Update Employee Role',
                 'Update Employee Manager',
+                'Delete Department',
+                'Delete Role',
+                'Delete Employee',
                 new inquirer.Separator(),
             ]
         }
@@ -34,7 +38,7 @@ const promptOption = () => {
         // default sql value is getting employee information
         // columns: id, first_name, last_name, job_title, department, salary, manager_name (manager's full name)
         // tables: employees, roles, departments, manager(referring employees)
-        let sql = `SELECT employees.id, employees.first_name, employees.last_name,
+        sql = `SELECT employees.id, employees.first_name, employees.last_name,
             roles.title AS job_title, departments.name AS department, roles.salary,
             CONCAT(manager.first_name, " ", manager.last_name) as manager_name
             FROM employees LEFT JOIN roles ON employees.role_id = roles.id
@@ -83,6 +87,8 @@ const promptOption = () => {
             case 'Update Employee Manager':
                 updateEmployee(choices, 'manager');
                 break;
+            case 'Delete Department':
+                deleteDept(choices);
         }
     });
 }
@@ -309,7 +315,7 @@ const updateEmployee = (employeeList, updateItem) => {
                         }
                         promptOption();
                     });
-                })
+                });
             });
         // if the user selected 'Update Employee Manager'
         } else if (updateItem === 'manager') {
@@ -346,6 +352,49 @@ const updateEmployee = (employeeList, updateItem) => {
                 });
             });
         }
+    });
+}
+
+// delete a department from db
+const deleteDept = (deptList) => {
+    // get all the departments
+    sql = `SELECT * FROM departments`;
+    db.query(sql, (err, departments) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+
+        // get dept names and store into list array
+        departments.forEach(function(index) {
+            deptList.push(index.name);
+        });
+
+        // prompt user for the info to delete the precise one
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'dept',
+                message: "Which department do you want to delete?",
+                choices: deptList
+            },
+        ])
+        .then((answer) => {
+            const dept_id = departments.filter(index => index.name === answer.dept)[0].id;
+            sql = `DELETE FROM departments WHERE id = ?`;
+            params = [dept_id];
+
+            db.query(sql, params, (err, results) => {
+                if (err) {
+                    console.log(err);
+                } else if (!results.affectedRows) {
+                    console.log('Department not found');
+                } else {
+                    console.log(`Deleted ${answer.dept} from the database`);
+                }
+                promptOption();
+            });
+        });
     });
 }
 
