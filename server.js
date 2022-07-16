@@ -82,13 +82,19 @@ const promptOption = () => {
                 addEmployee(choices);                
                 break;
             case 'Update Employee Role':
-                updateEmployee(choices, 'role');
+                updateEmployee(choices, 'update_role');
                 break;
             case 'Update Employee Manager':
-                updateEmployee(choices, 'manager');
+                updateEmployee(choices, 'update_manager');
                 break;
             case 'Delete Department':
                 deleteDept(choices);
+                break;
+            case 'Delete Role':
+                deleteRole(choices);
+            case 'Delete Employee':
+                updateEmployee(choices, 'delete');
+                break;
         }
     });
 }
@@ -391,6 +397,49 @@ const deleteDept = (deptList) => {
                     console.log('Department not found');
                 } else {
                     console.log(`Deleted ${answer.dept} from the database`);
+                }
+                promptOption();
+            });
+        });
+    });
+}
+
+// delete role form db
+const deleteRole = (roleList) => {
+    // get roles' id and title
+    sql = `SELECT roles.id, roles.title FROM roles`;
+    db.query(sql, (err, roles) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+
+        // get role titles and store into list array
+        roles.forEach(function(index) {
+            roleList.push(index.title);
+        });
+
+        // prompt user for the info to delete the precise one
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'role',
+                message: "Which role do you want to delete?",
+                choices: roleList
+            },
+        ])
+        .then((answer) => {
+            const role_id = roles.filter(index => index.title === answer.role)[0].id;
+            sql = `DELETE FROM roles WHERE id = ?`;
+            params = [role_id];
+
+            db.query(sql, params, (err, results) => {
+                if (err) {
+                    console.log(err);
+                } else if (!results.affectedRows) {
+                    console.log('Roles not found');
+                } else {
+                    console.log(`Deleted ${answer.role} from the database`);
                 }
                 promptOption();
             });
