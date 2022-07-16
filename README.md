@@ -9,7 +9,7 @@ This app is perfect for viewing and managing the departments, roles, and employe
 ![Alt text](./assets/images/screenshot1_tables.png)
 < Demo Video ><br/>
    - [Part 1](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/view)
-   - [Part 2]() ***← NEW!***
+   - [Part 2](https://drive.google.com/file/d/1kKbzOkJQunzZZeA62-tqkQem5SPdcFfy/view) ***← NEW!***
 
 ## Table of Contents
 - [Installation](#installation)
