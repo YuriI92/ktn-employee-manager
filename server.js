@@ -22,6 +22,7 @@ const promptOption = () => {
                 'Add Employee',
                 new inquirer.Separator(),
                 'Update Employee Role',
+                'Update Employee Manager',
                 new inquirer.Separator(),
             ]
         }
@@ -63,7 +64,10 @@ const promptOption = () => {
                 addEmployee(choices);                
                 break;
             case 'Update Employee Role':
-                updateEmployee(choices);
+                updateEmployee(choices, 'role');
+                break;
+            case 'Update Employee Manager':
+                updateEmployee(choices, 'manager');
                 break;
         }
     });
@@ -230,54 +234,92 @@ const addEmployee = (choices) => {
 }
 
 // update employee info in employees table
-const updateEmployee = (choices) => {
-    // get roles info to use as a prompt option for roles choices
-    sql = `SELECT * FROM roles`;
-    db.query(sql, (err, results) => {
+const updateEmployee = (employeeList, updateItem) => {
+    // get employees info to use as a prompt option for employees choices
+    sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
+    db.query(sql, (err, employees) => {
         if (err) {
             console.log(err);
             return;
         }
 
-        // get job titles and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.title);
+        // get employee names and store into choices array
+        employees.forEach(function(index) {
+            employeeList.push(index.name);
         });
+
+        // if the user selected 'Update Employee Role', 
+        if (updateItem === 'role') {
+            // get roles info to use as a prompt option for roles choices
+            sql = `SELECT * FROM roles`;
+            let roleList = [];
+            db.query(sql, (err, roles) => {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
         
-        // get employees info to use as a prompt option for employees choices
-        sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
-        let choices2 = [];
-        db.query(sql, (err, results2) => {
-            if (err) {
-                console.log(err);
-                return;
-            }
+                // get job titles and store into choices array
+                roles.forEach(function(index) {
+                    roleList.push(index.title);
+                });
+    
+                // prompt user for the info to update
+                return inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'employee',
+                        message: "Which employee's role do you want to update?",
+                        choices: employeeList
+                    },
+                    {
+                        type: 'list',
+                        name: 'role',
+                        message: 'What is the role of the employee?',
+                        choices: roleList
+                    }
+                ])
+                .then((answer) => {
+                    const role_id = roles.filter(index => index.title === answer.role)[0].id;
+                    const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                    sql = `UPDATE employees SET role_id = ? WHERE id = ?`;
+                    params = [role_id, employee_id];
 
-            // get employee names and store into choices array
-            results2.forEach(function(index) {
-                choices2.push(index.name);
+                    db.query(sql, params, (err, results) => {
+                        if (err) {
+                            console.log(err);
+                        } else if (!results.affectedRows) {
+                            console.log('Employee not found');
+                        } else {
+                            console.log(`Updated ${answer.employee} information in the database`);
+                        }
+                        promptOption();
+                    });
+                })
             });
-
+        // if the user selected 'Update Employee Manager'
+        } else if (updateItem === 'manager') {
             // prompt user for the info to update
             return inquirer.prompt([
                 {
                     type: 'list',
                     name: 'employee',
-                    message: "Which employee's role do you want to update?",
-                    choices: choices2
+                    message: "Which employee's manager do you want to update?",
+                    choices: employeeList
                 },
                 {
                     type: 'list',
-                    name: 'role',
-                    message: 'What is the role of the employee?',
-                    choices
+                    name: 'manager',
+                    message: "Who is the employee's manager?",
+                    choices: employeeList
                 }
             ])
             .then((answer) => {
-                const role_id = results.filter(index => index.title === answer.role)[0].id;
-                const employee_id = results2.filter(index => index.name === answer.employee)[0].id;
-                sql = `UPDATE employees SET role_id = ? WHERE id = ?`;
-                params = [role_id, employee_id];
+                const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                const manager_id = employees.filter(index => index.name === answer.manager)[0].id;
+                sql = `UPDATE employees SET manager_id = ? WHERE id = ?`;
+                params = [manager_id, employee_id];
+                
                 db.query(sql, params, (err, results) => {
                     if (err) {
                         console.log(err);
@@ -288,9 +330,9 @@ const updateEmployee = (choices) => {
                     }
                     promptOption();
                 });
-            })
-        });
-    });  
+            });
+        }
+    });
 }
 
 promptOption()
