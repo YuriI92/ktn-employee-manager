@@ -4,9 +4,12 @@
 
 ## Description
 This app is perfect for viewing and managing the departments, roles, and employees in your company! It will definitely help you organize and plan your business with just the command line prompt! 😼✨<br/>
-Click [here](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/view) for the demonstration video.<br/>
+
 < Sample image >
 ![Alt text](./assets/images/screenshot1_tables.png)
+< Demo Video ><br/>
+   - [Part 1](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/view)
+   - [Part 2](https://drive.google.com/file/d/1kKbzOkJQunzZZeA62-tqkQem5SPdcFfy/view) ***← NEW!***
 
 ## Table of Contents
 - [Installation](#installation)
@@ -33,9 +36,30 @@ Click [here](https://drive.google.com/file/d/1v20pF1Eu47Nx8iKgb1xeP6aUJylTOdpS/v
    npm start
    ```
 4. Select option using up and down arrows.
-![alt text](./assets/images/screenshot2_options.png)
-5. For the add and update options, answer all the questions.
-6. Use 'Ctrl' + 'c' to end.
+![alt text](./assets/images/screenshot2_options.png)<br/>
+   [ Options ]
+   - View Departments
+   - View Roles
+   - View Employees
+   - View Employees by Manager ***← NEW!***
+   - View Employees by Department ***← NEW!***
+   - View Department Budget (shows sum of all employees' salary in each department) ***← NEW!***
+
+   ---
+
+   - Add Department
+   - Add Role
+   - Add Employee
+
+   ---
+
+   - Update Employee Role
+   - Update Employee Manager ***← NEW!***
+   - Delete Department ***← NEW!***
+   - Delete Role ***← NEW!***
+   - Delete Employee ***← NEW!***
+5. For the add, update, delete options, answer all the questions.
+6. Use `Ctrl` + `c` to end.
 
 ## License
 Licensed under the [MIT License](https://opensource.org/licenses/MIT).

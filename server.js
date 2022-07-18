@@ -16,18 +16,35 @@ const promptOption = () => {
                 'View Departments',
                 'View Roles',
                 'View Employees',
+                'View Employees by Manager',
+                'View Employees by Department',
+                'View Department Budget',
                 new inquirer.Separator(),
                 'Add Department',
                 'Add Role',
                 'Add Employee',
                 new inquirer.Separator(),
                 'Update Employee Role',
+                'Update Employee Manager',
+                'Delete Department',
+                'Delete Role',
+                'Delete Employee',
                 new inquirer.Separator(),
             ]
         }
     ])
     .then(({ option }) => {
         let choices = [];
+
+        // default sql value is getting employee information
+        // columns: id, first_name, last_name, job_title, department, salary, manager_name (manager's full name)
+        // tables: employees, roles, departments, manager(referring employees)
+        sql = `SELECT employees.id, employees.first_name, employees.last_name,
+            roles.title AS job_title, departments.name AS department, roles.salary,
+            CONCAT(manager.first_name, " ", manager.last_name) as manager_name
+            FROM employees LEFT JOIN roles ON employees.role_id = roles.id
+            LEFT JOIN departments ON roles.department_id = departments.id
+            LEFT JOIN employees manager ON employees.manager_id = manager.id`;
 
         // respond to the selected options
         switch(option) {
@@ -43,16 +60,30 @@ const promptOption = () => {
                 showTable(sql);
                 break;
             case 'View Employees':
-                // columns: id, first_name, last_name, job_title, department, salary, manager_name (manager's full name)
-                // tables: employees, roles, departments, manager(referring employees)
-                sql = `SELECT employees.id, employees.first_name, employees.last_name,
-                    roles.title AS job_title, departments.name AS department, roles.salary,
-                    CONCAT(manager.first_name, " ", manager.last_name) as manager_name
-                    FROM employees LEFT JOIN roles ON employees.role_id = roles.id
-                    LEFT JOIN departments ON roles.department_id = departments.id
-                    LEFT JOIN employees manager ON employees.manager_id = manager.id`;
+                // use default sql value
                 showTable(sql);
                 break;
+            case 'View Employees by Manager':
+                // add sort order to the default sql value
+                sql += ` ORDER BY manager_name`;
+                showTable(sql);
+                break;
+            case 'View Employees by Department':
+                // add sort order to the default sql value
+                sql += ` ORDER BY department`;
+                showTable(sql);
+                break;
+            case 'View Department Budget':
+                // columns: department, budget(salary sum grouped by department)
+                // tables: roles, departments
+                sql = `SELECT departments.name AS department, SUM(roles.salary) AS budget
+                    FROM employees LEFT JOIN roles ON employees.role_id = roles.id
+                    LEFT JOIN departments ON roles.department_id = departments.id
+                    GROUP BY department`;
+
+                showTable(sql);
+                break;
+
             case 'Add Department':
                 addDept();
                 break;
@@ -62,8 +93,21 @@ const promptOption = () => {
             case 'Add Employee':
                 addEmployee(choices);                
                 break;
+
             case 'Update Employee Role':
-                updateEmployee(choices);
+                updateEmployee(choices, 'update_role');
+                break;
+            case 'Update Employee Manager':
+                updateEmployee(choices, 'update_manager');
+                break;
+            case 'Delete Department':
+                deleteDept(choices);
+                break;
+            case 'Delete Role':
+                deleteRole(choices);
+                break;
+            case 'Delete Employee':
+                updateEmployee(choices, 'delete');
                 break;
         }
     });
@@ -112,18 +156,18 @@ const addDept = () => {
 }
 
 // add role info to roles table
-const addRole = (choices) => {
+const addRole = (deptList) => {
     // get departments info to use as a prompt option for department choices
     sql = `SELECT * FROM departments`;
-    db.query(sql, (err, results) => {
+    db.query(sql, (err, departments) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get departments names and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.name);
+        departments.forEach(function(index) {
+            deptList.push(index.name);
         });
 
         // prompt user for the info to add
@@ -142,12 +186,12 @@ const addRole = (choices) => {
                 type: 'list',
                 name: 'department',
                 message: 'Which department does the role belong to?',
-                choices
+                choices: deptList
             }
         ])
             .then((answer) => {
                 // get department_id of the department selected
-                const department_id = results.filter(index => index.name === answer.department)[0].id;
+                const department_id = departments.filter(index => index.name === answer.department)[0].id;
                 sql = `INSERT INTO roles (title, salary, department_id) VALUES (?,?,?)`;
                 params = [answer.title, answer.salary, department_id];
                 addInfo(sql, params, answer.title);
@@ -156,34 +200,34 @@ const addRole = (choices) => {
 }
 
 // add employee info to employees table
-const addEmployee = (choices) => {
+const addEmployee = (roleList) => {
     // get roles info to use as a prompt option for roles choices
     sql = `SELECT * FROM roles`;
-    db.query(sql, (err, results) => {
+    db.query(sql, (err, roles) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // get job titles and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.title);
+        roles.forEach(function(index) {
+            roleList.push(index.title);
         });
         
         // get employees info to use as a prompt option for employees choices
         sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
-        let choices2 = [];
-        db.query(sql, (err, results2) => {
+        let employeeList = [];
+        db.query(sql, (err, employees) => {
             if (err) {
                 console.log(err);
                 return;
             }
 
             // get employee names and store into choices array
-            results2.forEach(function(index) {
-                choices2.push(index.name);
+            employees.forEach(function(index) {
+                employeeList.push(index.name);
             });
-            choices2.push('None');
+            employeeList.push('None');
 
             // prompt user for the info to add
             return inquirer.prompt([
@@ -201,23 +245,23 @@ const addEmployee = (choices) => {
                     type: 'list',
                     name: 'role',
                     message: 'What is the role of the employee?',
-                    choices
+                    choices: roleList
                 },
                 {
                     type: 'list',
                     name: 'manager',
                     message: "Who is the employee's manager?",
-                    choices: choices2
+                    choices: employeeList
                 }
             ])
                 .then((answer) => {
-                    const role_id = results.filter(index => index.title === answer.role)[0].id;
+                    const role_id = roles.filter(index => index.title === answer.role)[0].id;
                     let manager_id = '';
                     // set manager_id to null if 'none' is selected for manager
                     if (answer.manager === 'None') {
                         manager_id = null;
                     } else {
-                        manager_id = results2.filter(index => index.name === answer.manager)[0].id;
+                        manager_id = employees.filter(index => index.name === answer.manager)[0].id;
                     }
 
                     sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?)`;
@@ -230,54 +274,107 @@ const addEmployee = (choices) => {
 }
 
 // update employee info in employees table
-const updateEmployee = (choices) => {
-    // get roles info to use as a prompt option for roles choices
-    sql = `SELECT * FROM roles`;
-    db.query(sql, (err, results) => {
+const updateEmployee = (employeeList, action) => {
+    // get employees info to use as a prompt option for employees choices
+    sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
+    db.query(sql, (err, employees) => {
         if (err) {
             console.log(err);
             return;
         }
 
-        // get job titles and store into choices array
-        results.forEach(function(index) {
-            choices.push(index.title);
+        // get employee names and store into choices array
+        employees.forEach(function(index) {
+            employeeList.push(index.name);
         });
-        
-        // get employees info to use as a prompt option for employees choices
-        sql = `SELECT employees.id, CONCAT(employees.first_name, " ", employees.last_name) as name FROM employees`;
-        let choices2 = [];
-        db.query(sql, (err, results2) => {
-            if (err) {
-                console.log(err);
-                return;
-            }
 
-            // get employee names and store into choices array
-            results2.forEach(function(index) {
-                choices2.push(index.name);
+        // if the user selected 'Update Employee Role', 
+        if (action === 'update_role') {
+            // get roles info to use as a prompt option for roles choices
+            sql = `SELECT * FROM roles`;
+            let roleList = [];
+            db.query(sql, (err, roles) => {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+        
+                // get job titles and store into choices array
+                roles.forEach(function(index) {
+                    roleList.push(index.title);
+                });
+    
+                // prompt user for the info to update
+                return inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'employee',
+                        message: "Which employee's role do you want to update?",
+                        choices: employeeList
+                    },
+                    {
+                        type: 'list',
+                        name: 'role',
+                        message: 'What is the role of the employee?',
+                        choices: roleList
+                    }
+                ])
+                .then((answer) => {
+                    const role_id = roles.filter(index => index.title === answer.role)[0].id;
+                    const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                    sql = `UPDATE employees SET role_id = ? WHERE id = ?`;
+                    params = [role_id, employee_id];
+
+                    db.query(sql, params, (err, results) => {
+                        if (err) {
+                            console.log(err);
+                        } else if (!results.affectedRows) {
+                            console.log('Employee not found');
+                        } else {
+                            console.log(`Updated ${answer.employee} information in the database`);
+                        }
+                        promptOption();
+                    });
+                });
             });
+        // if the user selected 'Update Employee Manager'
+        } else if (action === 'update_manager') {
+            employeeList.push('None');
 
             // prompt user for the info to update
             return inquirer.prompt([
                 {
                     type: 'list',
                     name: 'employee',
-                    message: "Which employee's role do you want to update?",
-                    choices: choices2
+                    message: "Which employee's manager do you want to update?",
+                    choices: employeeList
                 },
                 {
                     type: 'list',
-                    name: 'role',
-                    message: 'What is the role of the employee?',
-                    choices
+                    name: 'manager',
+                    message: "Who is the employee's manager?",
+                    choices: employeeList
                 }
             ])
             .then((answer) => {
-                const role_id = results.filter(index => index.title === answer.role)[0].id;
-                const employee_id = results2.filter(index => index.name === answer.employee)[0].id;
-                sql = `UPDATE employees SET role_id = ? WHERE id = ?`;
-                params = [role_id, employee_id];
+                // set employee_id to empty string if selected 'None' for the employee
+                // to avoid error
+                let employee_id = '';
+                if (answer.employee !== 'None') {
+                    employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                }
+                
+                let manager_id = '';
+                // set manager_id to null if 'none' is selected for manager
+                if (answer.manager === 'None') {
+                    manager_id = null;
+                } else {
+                    manager_id = employees.filter(index => index.name === answer.manager)[0].id;
+                }
+
+                sql = `UPDATE employees SET manager_id = ? WHERE id = ?`;
+                params = [manager_id, employee_id];
+                
                 db.query(sql, params, (err, results) => {
                     if (err) {
                         console.log(err);
@@ -288,9 +385,121 @@ const updateEmployee = (choices) => {
                     }
                     promptOption();
                 });
-            })
+            });
+        } else if (action === 'delete') {
+            // prompt user for the info to delete
+            return inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'employee',
+                    message: "Which employee do you want to delete?",
+                    choices: employeeList
+                },
+            ])
+            .then((answer) => {
+                const employee_id = employees.filter(index => index.name === answer.employee)[0].id;
+                sql = `DELETE FROM employees WHERE id = ?`;
+                params = [employee_id];
+                
+                db.query(sql, params, (err, results) => {
+                    if (err) {
+                        console.log(err);
+                    } else if (!results.affectedRows) {
+                        console.log('Employee not found');
+                    } else {
+                        console.log(`Deleted ${answer.employee} from the database`);
+                    }
+                    promptOption();
+                });
+            });         
+        }
+    });
+}
+
+// delete a department from db
+const deleteDept = (deptList) => {
+    // get all the departments
+    sql = `SELECT * FROM departments`;
+    db.query(sql, (err, departments) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+
+        // get dept names and store into list array
+        departments.forEach(function(index) {
+            deptList.push(index.name);
         });
-    });  
+
+        // prompt user for the info to delete the precise one
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'dept',
+                message: "Which department do you want to delete?",
+                choices: deptList
+            },
+        ])
+        .then((answer) => {
+            const dept_id = departments.filter(index => index.name === answer.dept)[0].id;
+            sql = `DELETE FROM departments WHERE id = ?`;
+            params = [dept_id];
+
+            db.query(sql, params, (err, results) => {
+                if (err) {
+                    console.log(err);
+                } else if (!results.affectedRows) {
+                    console.log('Department not found');
+                } else {
+                    console.log(`Deleted ${answer.dept} from the database`);
+                }
+                promptOption();
+            });
+        });
+    });
+}
+
+// delete role form db
+const deleteRole = (roleList) => {
+    // get roles' id and title
+    sql = `SELECT roles.id, roles.title FROM roles`;
+    db.query(sql, (err, roles) => {
+        if (err) {
+            console.log(err);
+            return;
+        }
+
+        // get role titles and store into list array
+        roles.forEach(function(index) {
+            roleList.push(index.title);
+        });
+
+        // prompt user for the info to delete the precise one
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'role',
+                message: "Which role do you want to delete?",
+                choices: roleList
+            },
+        ])
+        .then((answer) => {
+            const role_id = roles.filter(index => index.title === answer.role)[0].id;
+            sql = `DELETE FROM roles WHERE id = ?`;
+            params = [role_id];
+
+            db.query(sql, params, (err, results) => {
+                if (err) {
+                    console.log(err);
+                } else if (!results.affectedRows) {
+                    console.log('Roles not found');
+                } else {
+                    console.log(`Deleted ${answer.role} from the database`);
+                }
+                promptOption();
+            });
+        });
+    });
 }
 
 promptOption()
